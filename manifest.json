@@ -1,0 +1,35 @@
+{
+    "manifest_version": 3,
+    "name": "Mark Maker",
+    "description": "Allow MarkDown in LinkedIn About Me sections for those who also have the extension",
+    "version": "0.0.1",
+    "icons": {
+        // "16": "logo/logo-16.png",
+        // "48": "logo/logo-48.png",
+        // "128": "logo/logo-128.png"
+    },
+    // "options_page": "settings/settings.html",
+    "action": {
+        // "default_title": "Chrome Addon v3 Starter",
+        // "default_popup": "popup/popup.html"
+    },
+    "permissions": [],
+    "host_permissions": ["*://*/*"],
+    "content_scripts": [
+        {
+            "css": ["/styles.css"],
+            "js": ["/extras/marked.js", "/main.js"],
+            "run_at": "document_idle",
+            "matches": ["*://www.linkedin.com/in/*", "*://linkedin.com/in/*"] // Limit it to only profiles (prevent posts from being transformed)
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "/extras/github-markdown-dark.css",
+                "/extras/github-markdown-light.css"
+            ],
+            "matches": ["*://*/*"]
+        }
+    ]
+}
