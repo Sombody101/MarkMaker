@@ -1,0 +1,78 @@
+.error-header {
+    display: flex;
+    align-items: start;
+    flex-direction: column;
+    text-align: start;
+}
+
+.error-header svg {
+    fill: #d73a49;
+    margin-right: 8px;
+}
+
+.error-box {
+    background-color: rgba(161, 0, 0, 0.242);
+    border: .8px solid rgba(255, 0, 0, 0.413);
+    border-radius: 6px;
+    padding: 16px;
+    margin: 11px;
+    align-items: center;
+    color: #d73a49 !important;
+}
+
+.error-message-container {
+    background-color: rgba(161, 0, 0, 0.242);
+    border: .8px solid rgba(255, 0, 0, 0.413);
+    border-radius: 10px;
+    padding: 8px;
+    margin: 10px !important;
+    display: block;
+}
+
+.error-message {
+    font-weight: bold;
+}
+
+.m-loader {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.m-loader svg {
+    width: 3.25em;
+    transform-origin: center;
+    animation: rotate4 2s linear infinite;
+}
+
+.m-loader circle {
+    fill: none;
+    stroke: hsl(214, 97%, 59%);
+    stroke-width: 2;
+    stroke-dasharray: 1, 200;
+    stroke-dashoffset: 0;
+    stroke-linecap: round;
+    animation: dash4 1.5s ease-in-out infinite;
+}
+
+@keyframes rotate4 {
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes dash4 {
+    0% {
+        stroke-dasharray: 1, 200;
+        stroke-dashoffset: 0;
+    }
+
+    50% {
+        stroke-dasharray: 90, 200;
+        stroke-dashoffset: -35px;
+    }
+
+    100% {
+        stroke-dashoffset: -125px;
+    }
+}

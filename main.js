@@ -1,25 +1,55 @@
-const DEBUG = true;
 const extensionTag = "MarkMaker:";
 
 const aboutMeSelector =
     "#profile-content > div > div.scaffold-layout.scaffold-layout--breakpoint-xl.scaffold-layout--main-aside.scaffold-layout--reflow.pv-profile.pvs-loader-wrapper__shimmer--animate > div > div > main > section:nth-child(4) > div.display-flex.ph5.pv3 > div > div > div > span:nth-child(1)";
 
-function loadCssFor(mode) {
-    const elmName = "MARK-MAKER-CSS";
+let previousAboutMe = "";
+let currentUsername;
+waitForElm("#ember37 > h1").then((elm) => {
+    currentUsername = elm.innerText;
+});
 
-    const existingElement = document.getElementById(elmName);
+function revertAboutMe(error) {
+    aboutMeSection.innerHTML = previousAboutMe || "";
 
-    if (existingElement) {
-        existingElement.remove();
-    }
+    const errMsg = document.createElement("div");
+    errMsg.innerHTML = `
+    <div class="error-box">
+        <div class="error-header">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+                <path d="M13 17.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm-.25-8.25a.75.75 0 0 0-1.5 0v4.5a.75.75 0 0 0 1.5 0v-4.5Z">
+                </path>
+                <path d="M9.836 3.244c.963-1.665 3.365-1.665 4.328 0l8.967 15.504c.963 1.667-.24 3.752-2.165 3.752H3.034c-1.926 0-3.128-2.085-2.165-3.752Zm3.03.751a1.002 1.002 0 0 0-1.732 0L2.168 19.499A1.002 1.002 0 0 0 3.034 21h17.932a1.002 1.002 0 0 0 .866-1.5L12.866 3.994Z">
+                </path>
+            </svg>
+            <p>Failed to load ${currentUsername}'s markdown bio</p>
+        </div>
 
-    const uiLink = document.createElement("link");
-    uiLink.rel = "stylesheet";
-    uiLink.type = "text/css";
-    uiLink.href = chrome.runtime.getURL(`/extras/github-markdown-${mode}.css`);
-    uiLink.id = elmName;
+        <div class="error-message-container">
+            <p class="error-message">${error}</p>
+        </div>
+    </div>`;
 
-    document.head.appendChild(uiLink);
+    waitForElm(
+        "#profile-content > div > div.scaffold-layout.scaffold-layout--breakpoint-xl.scaffold-layout--main-aside.scaffold-layout--reflow.pv-profile.pvs-loader-wrapper__shimmer--animate > div > div > main > section:nth-child(4) > div.YUTajPnnbAvYcJDaQOJReSFZlsGiPAEZIZiDpEY"
+    ).then((elm) => {
+        elm.appendChild(errMsg);
+    });
+
+    document.addEventListener("click", function (event) {
+        if (event.target.classList.contains("close-btn")) {
+            errMsg.remove();
+        }
+    });
+}
+
+function getUserTheme() {
+    return getComputedStyle(document.body).backgroundColor.replace(
+        /\s/g,
+        ""
+    ) === "rgb(0,0,0)"
+        ? "dark"
+        : "light";
 }
 
 function waitForElm(selector) {
@@ -50,18 +80,26 @@ let aboutMeSection;
 async function loadReadme(username) {
     let url;
 
-    // Match the pattern "git@<branch><separator><profile>"
-    const match = username.match(/^git@([^@\s]+)[^\w\s]([^@\s]+)$/);
+    if (username.toLowerCase().startsWith("git@")) {
+        let tmp = username.substring(4);
+        let dat = tmp.split(">");
 
-    if (match) {
-        const branch = match[1] || "main"; // Use 'main' if no branch is supplied
-        const profile = match[2];
-        url = `https://raw.githubusercontent.com/${profile}/${profile}/${branch}/README.md`;
+        if (dat.length == 2) {
+            url = `https://raw.githubusercontent.com/${dat[1]}/${dat[1]}/${dat[0]}/README.md`;
+        } else if (dat.length == 1) {
+            url = `https://raw.githubusercontent.com/${dat[0]}/${dat[0]}/main/README.md`;
+        } else {
+            throw new Error("Invalid shorthand depth of " + dat.length);
+        }
+    } else if (username.toLowerCase() == "#test") {
+        url =
+            "https://raw.githubusercontent.com/Sombody101/Sombody101/main/MarkMakerTest.md";
     } else {
         url = username;
     }
 
     try {
+        console.log(`Attempting markdown fetch for '${url}'`);
         const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`Failed to fetch README.md for ${username}`);
@@ -69,7 +107,7 @@ async function loadReadme(username) {
 
         const markdownContent = await response.text();
         const htmlContent = marked.parse(markdownContent);
-        innerHTML = `<div id="markdown-content" class="markdown-body"> ${htmlContent} </div>`;
+        innerHTML = `<div id="markdown-content" class="markdown-body">${htmlContent}</div>`;
 
         const getGeneratedPageURL = ({ html, css }) => {
             const getBlobURL = (code, type) => {
@@ -116,23 +154,25 @@ async function loadReadme(username) {
             return getBlobURL(source, "text/html");
         };
 
-        const iframe = document.createElement("iframe");
-        iframe.onload = function () {
-            iframe.style.height =
-                iframe.contentWindow.document.body.scrollHeight + "px";
-        };
+        let lastSize = 0;
+        function resizeIFrame() {
+            let winSize = iframe.contentWindow.document.body.scrollHeight + 10;
 
+            if (winSize == lastSize) return;
+
+            iframe.style.height = winSize + "px";
+            lastSize = winSize + 10;
+        }
+
+        const iframe = document.createElement("iframe");
+        iframe.onload = resizeIFrame;
         iframe.src = getGeneratedPageURL({
             html: innerHTML,
             css: chrome.runtime.getURL(
-                `/extras/github-markdown-${
-                    document.querySelector(".theme-dark") !== null
-                        ? "dark"
-                        : "light"
-                }.css`
+                `/extras/github-markdown-${getUserTheme()}.css`
             ),
         });
-        
+
         iframe.id = "#iframe";
         iframe.style =
             "border-radius: 10px; width: 100%; height: fit-content; border: none;";
@@ -140,15 +180,12 @@ async function loadReadme(username) {
         aboutMeSection.innerHTML = "";
         aboutMeSection.appendChild(iframe);
 
-        document
-            .querySelector(
-                "#profile-content > div > div.scaffold-layout.scaffold-layout--breakpoint-xl.scaffold-layout--main-aside.scaffold-layout--reflow.pv-profile.pvs-loader-wrapper__shimmer--animate > div > div > main > section:nth-child(4) > div.display-flex.ph5.pv3 > div > div > div > span.inline-show-more-text__link-container-collapsed"
-            )
-            .remove();
-
-        // Load GitHub (Look alike) CSS
+        setInterval(function () {
+            resizeIFrame();
+        }, 5000);
     } catch (error) {
         console.warn(`Error fetching or parsing Markdown [${url}]:`, error);
+        revertAboutMe(error.message);
     }
 }
 
@@ -165,51 +202,30 @@ async function getAboutMeSection() {
                 .find((line) => line.includes(extensionTag));
             const markdownURL = metadataLine.split(extensionTag)[1].trim();
 
-            await loadReadme(markdownURL);
+            previousAboutMe = aboutMeSection.innerHTML;
+            aboutMeSection.innerHTML = `
+            <div class="m-loader">
+                <svg viewBox="25 25 50 50">
+                    <circle r="20" cy="50" cx="50"></circle>
+                </svg>
+            </div>
+            <p class="m-loader">
+                Loading ${currentUsername}'s markdown...
+            </p>
+            `;
+
+            waitForElm(
+                "#profile-content > div > div.scaffold-layout.scaffold-layout--breakpoint-xl.scaffold-layout--main-aside.scaffold-layout--reflow.pv-profile.pvs-loader-wrapper__shimmer--animate > div > div > main > section:nth-child(4) > div.display-flex.ph5.pv3 > div > div > div > span.inline-show-more-text__link-container-collapsed"
+            ).then((elm) => elm.remove());
+
+            loadReadme(markdownURL);
         } else {
             console.warn("Failed to locate about me section with path");
         }
     } catch (error) {
         console.error("Error:", error);
+        revertAboutMe(error.message);
     }
 }
 
 getAboutMeSection();
-
-// Function to handle changes in the DOM
-function handleMutations(mutationsList, observer) {
-    if (!aboutMeSection) return;
-
-    // Set a timeout to execute injectCSS after 200ms
-    for (const mutation of mutationsList) {
-        if (mutation.type === "childList") {
-            mutation.addedNodes.forEach((node) => {
-                // Check if the added node is a link element or a style element
-                if (
-                    (node.id &&
-                        !node.id.startsWith("MARK") &&
-                        node instanceof HTMLLinkElement &&
-                        node.rel === "stylesheet") ||
-                    (node instanceof HTMLStyleElement &&
-                        node.type === "text/css")
-                ) {
-                    // A new CSS file or style element was added, reload your styles
-                    clearTimeout(200);
-                    console.log("starting timeout...");
-
-                    timeoutId = setTimeout(() => {
-                        console.log("reloading css");
-                        if (document.querySelector(".theme-dark") !== null)
-                            loadCssFor("dark");
-                        else loadCssFor("light");
-                    }, 50);
-                }
-            });
-        }
-    }
-}
-
-// Create a MutationObserver and attach it to the document
-const observer = new MutationObserver(handleMutations);
-const observerConfig = { childList: true, subtree: true };
-observer.observe(document, observerConfig);
